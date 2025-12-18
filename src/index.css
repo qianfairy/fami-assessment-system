@@ -1,0 +1,129 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 打印门户策略 - 非打印时隐藏打印容器 */
+@media screen {
+  #print-root {
+    display: none;
+  }
+}
+
+/* 打印样式优化 - 打印门户策略 */
+@media print {
+  /* 隐藏原本的 App 界面 */
+  #root {
+    display: none !important;
+  }
+  
+  /* 显示打印专用容器 */
+  #print-root {
+    display: block !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+  
+  /* 强制所有元素在打印时解除高度限制 */
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  
+  body {
+    -webkit-print-color-adjust: exact; /* 打印背景色 */
+    print-color-adjust: exact; /* 标准属性 */
+  }
+  
+  @page {
+    size: A4;
+    margin: 20mm; /* 设置合理的页边距 */
+  }
+  
+  /* 核心防切割样式 */
+  .print-card {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    display: block !important; /* 关键：打印时必须是 block 才能防切割 */
+    margin-bottom: 20px;
+  }
+  
+  /* 确保所有卡片不会被切断 */
+  .break-inside-avoid {
+    break-inside: avoid;
+    page-break-inside: avoid; /* 兼容旧浏览器 */
+  }
+  
+  /* 强制应用防切割，兼容老旧浏览器 */
+  .print-break-avoid {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    display: block !important; 
+    position: relative !important;
+    overflow: visible !important;
+  }
+  
+  /* 打印时的间距调整 */
+  .print\:mb-4 {
+    margin-bottom: 1rem !important;
+  }
+  
+  /* 强制分页 */
+  .print\:break-before-page {
+    break-before: page;
+    page-break-before: always; /* 兼容旧浏览器 */
+  }
+  
+  /* 隐藏打印按钮 */
+  .print\:hidden {
+    display: none !important;
+  }
+  
+  /* html2pdf.js 分页符支持 - 关键：强制分页 */
+  .html2pdf__page-break {
+    page-break-before: always !important;
+    break-before: page !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: block !important;
+  }
+  
+  /* 确保两页容器正确分页 */
+  #page-1-container,
+  #page-2-container {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  
+  /* 第二页容器强制从新页开始 */
+  #page-2-container {
+    page-break-before: always !important;
+    break-before: page !important;
+  }
+  
+  /* A4 页面容器 - 定死高度策略 + 自动撑满 */
+  .a4-page-container {
+    width: 100%;
+    height: 290mm;
+    padding: 32px 40px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background-color: white;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+}
+

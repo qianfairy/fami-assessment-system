@@ -1,14 +1,10 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import path from 'path'
 
+// 恢复最纯净的默认配置
 export default defineConfig({
-  base: './', // 关键！使用相对路径，解决子路径部署 404 问题
   plugins: [react()],
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
-  },
+  // 不要加 base: './'，这会影响本地路由
+  // 不要加 outDir: 'build'，Vite 默认就是 dist
 })
 

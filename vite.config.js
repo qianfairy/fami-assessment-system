@@ -10,8 +10,5 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
-  build: {
-    outDir: 'build', // 显式设置为 build，适配腾讯云部署
-  },
 })
 

@@ -125,5 +125,43 @@ body {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
+  
+  /* PDF 页面容器样式 - 确保导出时撑满宽度，符合 A4 比例 */
+  .pdf-page {
+    width: 100%;
+    min-height: 297mm; /* 保持 A4 高度 */
+    padding: 40px;
+    background: white;
+    box-sizing: border-box;
+  }
+  
+  /* 🌟 暴力放大：强制所有子元素字号变大 */
+  .pdf-page * {
+    font-size: 18px !important; /* 基准字号 */
+    line-height: 1.6 !important;
+  }
+  
+  /* 单独放大标题，防止被上面覆盖 */
+  .pdf-page h1 {
+    font-size: 32px !important;
+    margin-bottom: 20px;
+  }
+  .pdf-page h2 {
+    font-size: 24px !important;
+    margin-bottom: 15px;
+  }
+  .pdf-page h3 {
+    font-size: 20px !important;
+    margin-bottom: 10px;
+  }
+  
+  /* 🌟 防止图表撑破宽度 */
+  .pdf-page img, 
+  .pdf-page canvas, 
+  .pdf-page svg,
+  .pdf-page .chart-container { /* 假设你有图表容器 */
+    max-width: 100% !important; /* 🌟 强制图表宽度不超过父容器 */
+    height: auto !important;
+  }
 }
 

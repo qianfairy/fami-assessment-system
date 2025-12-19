@@ -18,7 +18,7 @@ import {
   getCoursePath
 } from '../utils/calculation';
 import { Download, ArrowLeft, CheckCircle2 } from 'lucide-react';
-import { toPng } from 'html-to-image';
+import { toJpeg } from 'html-to-image';
 import jsPDF from 'jspdf';
 import { dimensions } from '../data/questions';
 
@@ -32,7 +32,7 @@ console.log('Logo Image Type:', typeof logoImg);
 // 课程愿景数据（完整版）
 const courseVisionData = {
   "衔接班": {
-    title: "路径一：启蒙探险家计划 (衔接班 → 小班)",
+    title: "启蒙探险家计划 (衔接班 → 小班)",
     goal: "引爆语言潜能，完成从家庭个体到集体小成员的快乐过渡，建立对学习的原始热爱。",
     surprises: [
       '✨ 从"用手指"到"用语言"：孩子不再是哼哼或哭闹，而是能清晰地说出"老师，我要喝水"、"妈妈，抱抱我"。',
@@ -42,7 +42,7 @@ const courseVisionData = {
     ]
   },
   "小班": {
-    title: "路径二：小小思想家计划 (小班 → 中班)",
+    title: "小小思想家计划 (小班 → 中班)",
     goal: "实现语言表达的完整化、逻辑化，成为会观察、会提问、会合作的'小大人'。",
     surprises: [
       '✨ "金句小达人"：告别单词蹦跳，能声情并茂地描述一件事："今天在幼儿园，我和明明一起搭了一个好高的城堡！"',
@@ -52,7 +52,7 @@ const courseVisionData = {
     ]
   },
   "中班": {
-    title: "路径三：智慧创造者计划 (中班 → 大班)",
+    title: "智慧创造者计划 (中班 → 大班)",
     goal: "掌握深度思考的'工具'，能从'是什么'进阶到'为什么'，展现初步的批判性思维和创造力。",
     surprises: [
       '✨ "逻辑小讲师"：能条理清晰地解释事件原因："因为下雨了，所以我们要打伞，不然会淋湿生病。"',
@@ -62,7 +62,7 @@ const courseVisionData = {
     ]
   },
   "大班": {
-    title: "路径四：小学预备领袖计划 (大班强化课程)",
+    title: "小学预备领袖计划 (大班强化课程)",
     goal: "全面对接小学核心素养，不仅在知识上，更在心态和习惯上，成为自信、从容的'准小学生'。",
     surprises: [
       "✨ '小学老师眼中的优等生'：具备清晰的拼音意识，能工整书写自己的名字，握笔姿势标准，具备远超同龄人的听讲意识。",
@@ -207,11 +207,6 @@ const LearningPathPlans = ({ currentLevel }) => {
           className={`${plan.bgColor} rounded-2xl border-2 ${plan.borderColor} p-4 relative shadow-sm border border-orange-100`}
           style={{ pageBreakInside: 'avoid' }}
         >
-          {plan.isRecommended && (
-            <div className="absolute -top-3 -right-3 bg-gradient-to-r from-red-500 to-orange-500 text-white text-sm font-bold px-3 py-1.5 rounded-full z-10 shadow-md">
-              🔥 推荐
-            </div>
-          )}
           <div className="mb-3">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-semibold text-gray-600">方案 {plan.id}</span>
@@ -398,40 +393,177 @@ const ReportPage = () => {
     return text;
   };
 
-  // 导出PDF - 使用 html-to-image + jspdf（保证样式不丢失）
+  // 导出PDF - 离屏克隆方案（A4 标准宽度，解决缩放和留白问题）
   const handleExportPDF = async () => {
-    const element = document.getElementById('report-content'); // 确保ID正确
-    if (!element) {
-      alert('无法找到报告内容，请刷新页面重试');
+    const originalPages = document.querySelectorAll('.pdf-page');
+    if (originalPages.length === 0) {
+      alert('未找到页面容器，请检查代码');
       return;
     }
 
+    // 1. 创建沙盒：宽度严格设为 800px (A4 像素宽)
+    const container = document.createElement('div');
+    container.style.position = 'fixed';
+    container.style.top = '-10000px';
+    container.style.left = '-10000px';
+    container.style.width = '800px'; // 🌟 关键修改：回归 A4 标准宽
+    container.style.zIndex = '-1';
+    document.body.appendChild(container);
+
     try {
-      // 1. 生成高清图片
-      const dataUrl = await toPng(element, {
-        cacheBust: true, // 防止图片跨域缓存导致白屏
-        pixelRatio: 2, // 2倍清晰度，保证文字清晰度，不想模糊
-        backgroundColor: '#ffffff', // 强制白底
-        width: 1440, // 强制模拟电脑宽屏，防止变成手机排版
-        style: {
-          // 强制覆盖一些打印时的样式
-          margin: '0',
-          padding: '20px', // 给稍微一点边距
-        }
-      });
-
-      // 2. 计算 PDF 尺寸 (自适应高度)
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const imgProps = pdf.getImageProperties(dataUrl);
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
 
-      // 3. 生成 PDF
-      pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      // 在循环外获取 Logo 模板
+      const sourceLogo = document.querySelector('.logo') || document.querySelector('header img') || document.querySelector('img');
+
+      for (let i = 0; i < originalPages.length; i++) {
+        // 2. 克隆页面
+        const clone = originalPages[i].cloneNode(true);
+        
+        // ==========================================
+        // 1. 🧹 大清洗：隐藏原本的 Logo 和标题
+        // ==========================================
+        // 移除所有现存图片中的 Logo
+        const allImages = Array.from(clone.querySelectorAll('img'));
+        allImages.forEach(img => {
+          if (img.src === sourceLogo?.src || img.closest('header') || img.className.includes('logo')) {
+            img.remove();
+          }
+        });
+        
+        // 🌟 关键：找到并隐藏原本的"饭米多蔻..."文字，防止双标题
+        const allElements = Array.from(clone.querySelectorAll('*'));
+        const originalTitle = allElements.find(el => el.innerText && el.innerText.trim() === '饭米多蔻中英文绘本馆' && el.tagName !== 'SCRIPT');
+        if (originalTitle) originalTitle.style.display = 'none';
+        
+        // ==========================================
+        // 2. 🏗️ 重建标准页眉 (Logo + 文字)
+        // ==========================================
+        const headerRow = document.createElement('div');
+        Object.assign(headerRow.style, {
+          display: 'flex',
+          alignItems: 'center', // 垂直居中
+          justifyContent: 'flex-start', // 靠左对齐
+          marginBottom: '20px', // 页眉和下面内容的间距
+          marginTop: '0',
+          width: '100%'
+        });
+        
+        // [A] 创建 Logo
+        if (sourceLogo) {
+          const newLogo = sourceLogo.cloneNode(true);
+          Object.assign(newLogo.style, {
+            width: '60px', // 🌟 Logo 大小 (根据需要调整)
+            height: 'auto',
+            marginRight: '15px', // Logo 和文字之间的间距
+            display: 'block'
+          });
+          headerRow.appendChild(newLogo);
+        }
+        
+        // [B] 创建标题文字
+        const titleText = document.createElement('h1');
+        titleText.innerText = '饭米多蔻中英文绘本馆';
+        Object.assign(titleText.style, {
+          fontSize: '24px', // 字体大小
+          fontWeight: 'bold', // 加粗
+          color: '#333333', // 颜色
+          margin: '0', // 清除默认边距
+          lineHeight: '1.2'
+        });
+        headerRow.appendChild(titleText);
+        
+        // ==========================================
+        // 3. 🚀 插入页面
+        // ==========================================
+        clone.prepend(headerRow);
+        
+        // ==========================================
+        // 4. 📐 页面整体布局重置
+        // ==========================================
+        Object.assign(clone.style, {
+          width: '100%',
+          minHeight: '1125px',
+          padding: '40px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'flex-start',
+          backgroundColor: 'white',
+          boxSizing: 'border-box'
+        });
+        
+        // ==========================================
+        // 5. 📏 维持红线间距 (防止正文挤压)
+        // ==========================================
+        const allDivs = Array.from(clone.querySelectorAll('*'));
+        const nameLabel = allDivs.find(el => el.innerText && el.innerText.includes('幼儿姓名'));
+        
+        if (nameLabel) {
+          // 找到红线行并推开下面的距离
+          let infoRow = nameLabel.parentElement;
+          while (infoRow && infoRow !== clone) {
+            const style = window.getComputedStyle(infoRow);
+            if (style.borderBottomWidth !== '0px' || infoRow.className.includes('border-b') || infoRow.clientWidth > 400) {
+              break;
+            }
+            infoRow = infoRow.parentElement;
+          }
+          
+          if (infoRow && infoRow !== clone) {
+            // 红线下面依然保持 60px 间距，让正文有呼吸感
+            infoRow.style.marginBottom = '60px';
+          }
+        }
+        
+        // 6. (可选) 确保页脚沉底
+        const footer = clone.querySelector('footer') || clone.querySelector('.footer') || clone.querySelector('[class*="footer"]');
+        if (footer) {
+          footer.style.marginTop = 'auto';
+        }
+        
+        // 3.2 🌟 核心修复：防止右侧切割！
+        // 找到克隆体内所有可能撑破宽度的元素，强制它们缩放
+        // 但排除页眉中的 Logo（headerRow 中的图片）
+        const bigElements = clone.querySelectorAll('img, canvas, svg, .echarts-for-react'); 
+        bigElements.forEach(el => {
+          // 如果元素在 headerRow 中，跳过处理（保持 Logo 原始大小）
+          if (headerRow && headerRow.contains(el)) {
+            return;
+          }
+          el.style.maxWidth = '100%'; // 强制缩进 800px 内
+          el.style.height = 'auto';
+        });
+        
+        // 3.3 字体微调 (可选)
+        container.style.fontSize = '16px'; 
+        container.innerHTML = ''; 
+        container.appendChild(clone);
+        
+        // 4. 截图
+        const dataUrl = await toJpeg(clone, {
+          quality: 0.9,
+          pixelRatio: 2, // 保持2倍高清
+          width: 800,    // 锁定截图宽度
+          backgroundColor: '#ffffff',
+        });
+        
+        const imgProps = pdf.getImageProperties(dataUrl);
+        const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+        
+        if (i > 0) {
+          pdf.addPage();
+        }
+        
+        pdf.addImage(dataUrl, 'JPEG', 0, 0, pdfWidth, imgHeight);
+      }
+
       pdf.save(`${studentInfo.name}_入学测评报告.pdf`);
     } catch (err) {
-      console.error('导出失败:', err);
-      alert('导出失败，请重试');
+      console.error(err);
+      alert('导出失败');
+    } finally {
+      document.body.removeChild(container);
     }
   };
 
@@ -459,12 +591,12 @@ const ReportPage = () => {
       {/* 报告内容容器 - 用于导出 PDF */}
       <div id="report-content" className="bg-orange-50/30">
         {/* === 第 1 页：诊断页 === */}
-        <div id="page-1" className="a4-page-container">
+        <div id="page-1" className="pdf-page a4-page-container" style={{ width: '100%', minHeight: '297mm', background: 'white' }}>
           {/* 顶部页眉 */}
           <PageHeader date={formatDate(studentInfo.date)} />
           
           {/* 学生信息 */}
-          <div className="mb-4 pb-4 border-b-2 border-orange-200 shrink-0">
+          <div className="mb-8 pb-4 border-b-2 border-orange-200 shrink-0">
             <div className="flex flex-row items-center gap-6 text-gray-700 text-base">
               <div className="flex items-center whitespace-nowrap">
                 <span className="text-gray-500">幼儿姓名：</span>
@@ -616,7 +748,7 @@ const ReportPage = () => {
         <div className="html2pdf__page-break"></div>
 
         {/* === 第 2 页：愿景页 === */}
-        <div id="page-2" className="a4-page-container">
+        <div id="page-2" className="pdf-page a4-page-container" style={{ width: '100%', minHeight: '297mm', background: 'white' }}>
           {/* 页眉 */}
           <PageHeader date={formatDate(studentInfo.date)} />
           
@@ -655,14 +787,6 @@ const ReportPage = () => {
                     </p>
                   </div>
                 )}
-
-                <div className="p-4 bg-white/80 rounded-2xl border-l-4 border-purple-400 shadow-sm border border-orange-100">
-                  <h3 className="font-semibold text-slate-800 mb-2 text-sm">规划起点</h3>
-                  <p className="text-gray-700 text-sm leading-relaxed">
-                    根据当前测评结果，推荐从<strong className="text-purple-600">{recommendedCourse.name}</strong>开始学习，
-                    重点培养<strong className="text-purple-600">{recommendedCourse.description}</strong>能力。
-                  </p>
-                </div>
               </div>
             </div>
             
@@ -697,19 +821,42 @@ const ReportPage = () => {
                     // 移除开头的✨图标（如果存在）
                     let cleanText = text.replace(/^✨\s*/, '');
                     
-                    // 匹配 'xxx' 或 "xxx" 格式的重点词汇，包括中文引号
-                    const parts = cleanText.split(/(['"'"]([^'"]+)['"'"])/g);
-                    return parts.map((part, i) => {
-                      if (part.match(/^['"'"]([^'"]+)['"']$/)) {
-                        const word = part.replace(/['"'"']/g, '');
-                        return (
-                          <span key={i} className="text-indigo-600 font-bold">
-                            "{word}"
-                          </span>
+                    // 使用 matchAll 来找到所有重点词汇，然后手动分割
+                    const matches = [...cleanText.matchAll(/(['"'"]([^'"]+)['"'])/g)];
+                    if (matches.length === 0) {
+                      return <span>{cleanText}</span>;
+                    }
+                    
+                    const result = [];
+                    let lastIndex = 0;
+                    
+                    matches.forEach((match, i) => {
+                      // 添加匹配前的文本
+                      if (match.index > lastIndex) {
+                        result.push(
+                          <span key={`text-${i}`}>{cleanText.substring(lastIndex, match.index)}</span>
                         );
                       }
-                      return <span key={i}>{part}</span>;
+                      
+                      // 添加高亮的重点词汇（只取内容，不包括引号）
+                      const word = match[2] || match[1].replace(/['"'"']/g, '');
+                      result.push(
+                        <span key={`highlight-${i}`} className="text-indigo-600 font-bold">
+                          "{word}"
+                        </span>
+                      );
+                      
+                      lastIndex = match.index + match[0].length;
                     });
+                    
+                    // 添加最后剩余的文本
+                    if (lastIndex < cleanText.length) {
+                      result.push(
+                        <span key="text-end">{cleanText.substring(lastIndex)}</span>
+                      );
+                    }
+                    
+                    return result;
                   };
 
                   // 根据索引选择不同的图标
@@ -737,7 +884,7 @@ const ReportPage = () => {
         <div className="html2pdf__page-break"></div>
 
         {/* === 第 3 页：落地页 === */}
-        <div id="page-3" className="a4-page-container pb-8">
+        <div id="page-3" className="pdf-page a4-page-container pb-8" style={{ width: '100%', minHeight: '297mm', background: 'white' }}>
           {/* 页眉 */}
           <PageHeader date={formatDate(studentInfo.date)} />
           

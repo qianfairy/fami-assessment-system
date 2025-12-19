@@ -18,7 +18,8 @@ import {
   getCoursePath
 } from '../utils/calculation';
 import { Download, ArrowLeft, CheckCircle2 } from 'lucide-react';
-import html2pdf from 'html2pdf.js';
+import { toPng } from 'html-to-image';
+import jsPDF from 'jspdf';
 import { dimensions } from '../data/questions';
 
 // 引入 Logo 图片 - Vite 会自动处理静态导入
@@ -397,31 +398,41 @@ const ReportPage = () => {
     return text;
   };
 
-  // 导出PDF - 使用 html2pdf.js
-  const handleExportPDF = () => {
-    const element = document.getElementById('report-content');
-    
+  // 导出PDF - 使用 html-to-image + jspdf（保证样式不丢失）
+  const handleExportPDF = async () => {
+    const element = document.getElementById('report-content'); // 确保ID正确
     if (!element) {
       alert('无法找到报告内容，请刷新页面重试');
       return;
     }
 
-    const opt = {
-      margin: [10, 10, 10, 10], // 上下左右边距 (mm)
-      filename: `${studentInfo.name}_入学测评报告.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { 
-        scale: 2, 
-        useCORS: true, 
-        scrollY: 0 // 关键：防止滚动影响布局
-      },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      // 关键：智能分页配置 - 识别 CSS 分页符
-      pagebreak: { mode: ['css', 'legacy'] }
-    };
+    try {
+      // 1. 生成高清图片
+      const dataUrl = await toPng(element, {
+        cacheBust: true, // 防止图片跨域缓存导致白屏
+        pixelRatio: 2, // 2倍清晰度，保证文字清晰度，不想模糊
+        backgroundColor: '#ffffff', // 强制白底
+        width: 1440, // 强制模拟电脑宽屏，防止变成手机排版
+        style: {
+          // 强制覆盖一些打印时的样式
+          margin: '0',
+          padding: '20px', // 给稍微一点边距
+        }
+      });
 
-    // 执行导出
-    html2pdf().set(opt).from(element).save();
+      // 2. 计算 PDF 尺寸 (自适应高度)
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgProps = pdf.getImageProperties(dataUrl);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+      // 3. 生成 PDF
+      pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`${studentInfo.name}_入学测评报告.pdf`);
+    } catch (err) {
+      console.error('导出失败:', err);
+      alert('导出失败，请重试');
+    }
   };
 
   return (

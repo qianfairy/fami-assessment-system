@@ -416,80 +416,219 @@ const ReportPage = () => {
 
       // 在循环外获取 Logo 模板
       const sourceLogo = document.querySelector('.logo') || document.querySelector('header img') || document.querySelector('img');
+      console.log('🔍 Logo 获取结果:', sourceLogo ? '成功' : '失败', sourceLogo?.src || sourceLogo?.getAttribute('src'));
 
       for (let i = 0; i < originalPages.length; i++) {
         // 2. 克隆页面
         const clone = originalPages[i].cloneNode(true);
         
-        // ==========================================
-        // 1. 🧹 大清洗：隐藏原本的 Logo 和标题
-        // ==========================================
-        // 移除所有现存图片中的 Logo
+        // ============================================================
+        // 1. 🚜 推土机式清理：隐藏所有看起来像旧页眉的元素
+        // ============================================================
+        // 我们遍历 clone 的所有子节点，只要里面有相关文字或图片，就认为是旧头部，直接隐藏
+        const allChildren = Array.from(clone.children);
+        allChildren.forEach(child => {
+          const text = child.innerText || '';
+          // 如果包含馆名、报告名、或者里面有 Logo 图
+          // ⚠️ 注意：我们只隐藏包含文字的头部，不隐藏单独的图片（因为可能误删）
+          if (text.includes('饭米多蔻') || text.includes('入学综合能力')) {
+            // ⚠️ 只有当这个元素处于页面顶部区域（前 20%）时才隐藏，防止误删下面的正文
+            // 由于我们无法在克隆体中获取 offsetTop，我们假设前 3 个子元素里的就是头部
+            if (allChildren.indexOf(child) < 3) {
+              child.style.display = 'none';
+            }
+          }
+        });
+        
+        // 额外清理：移除所有可能存在的旧 Logo 图片（防止重复）
         const allImages = Array.from(clone.querySelectorAll('img'));
         allImages.forEach(img => {
-          if (img.src === sourceLogo?.src || img.closest('header') || img.className.includes('logo')) {
+          // 如果图片在页面前部（前3个子元素内），且宽度较小（可能是 Logo），则删除
+          const imgParent = img.closest('div');
+          if (imgParent && allChildren.indexOf(imgParent) < 3 && img.clientWidth < 200) {
             img.remove();
           }
         });
         
-        // 🌟 关键：找到并隐藏原本的"饭米多蔻..."文字，防止双标题
-        const allElements = Array.from(clone.querySelectorAll('*'));
-        const originalTitle = allElements.find(el => el.innerText && el.innerText.trim() === '饭米多蔻中英文绘本馆' && el.tagName !== 'SCRIPT');
-        if (originalTitle) originalTitle.style.display = 'none';
-        
-        // ==========================================
-        // 2. 🏗️ 重建标准页眉 (Logo + 文字)
-        // ==========================================
-        const headerRow = document.createElement('div');
-        Object.assign(headerRow.style, {
+        // ============================================================
+        // 2. 🏗️ 重建标准页眉 (左右两端对齐)
+        // ============================================================
+        const headerContainer = document.createElement('div');
+        Object.assign(headerContainer.style, {
           display: 'flex',
-          alignItems: 'center', // 垂直居中
-          justifyContent: 'flex-start', // 靠左对齐
-          marginBottom: '20px', // 页眉和下面内容的间距
-          marginTop: '0',
-          width: '100%'
+          justifyContent: 'space-between', // 左logo 右日期
+          alignItems: 'center',
+          width: '100%',
+          height: 'auto',
+          paddingBottom: '20px', // 内部留白
+          marginBottom: '30px', // 外部把正文推开
+          borderBottom: '1px solid #eee', // 加一条淡淡的分隔线，提升专业感
+          backgroundColor: '#fff',
+          position: 'relative',
+          zIndex: '999'
         });
         
-        // [A] 创建 Logo
+        // --- [左侧] Logo + 馆名 ---
+        const leftPart = document.createElement('div');
+        Object.assign(leftPart.style, {
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        });
+        
+        // 1. Logo - 🌟 强制插入，确保所有页面都有 Logo
+        // 策略：优先使用全局 sourceLogo，如果不存在则从原始页面获取
+        let logoInserted = false;
+        let logoToUse = null;
+        
+        // 优先使用全局 sourceLogo
         if (sourceLogo) {
-          const newLogo = sourceLogo.cloneNode(true);
-          Object.assign(newLogo.style, {
-            width: '60px', // 🌟 Logo 大小 (根据需要调整)
-            height: 'auto',
-            marginRight: '15px', // Logo 和文字之间的间距
-            display: 'block'
-          });
-          headerRow.appendChild(newLogo);
+          logoToUse = sourceLogo;
+          console.log(`✅ 第 ${i + 1} 页：使用全局 sourceLogo`);
+        } else {
+          // 从原始页面获取 Logo
+          logoToUse = originalPages[i].querySelector('img');
+          if (logoToUse) {
+            console.log(`✅ 第 ${i + 1} 页：从原始页面获取 Logo`);
+          } else {
+            // 尝试从所有原始页面中查找
+            for (let j = 0; j < originalPages.length; j++) {
+              const pageLogo = originalPages[j].querySelector('img');
+              if (pageLogo) {
+                logoToUse = pageLogo;
+                console.log(`✅ 第 ${i + 1} 页：从第 ${j + 1} 页获取 Logo`);
+                break;
+              }
+            }
+          }
         }
         
-        // [B] 创建标题文字
-        const titleText = document.createElement('h1');
-        titleText.innerText = '饭米多蔻中英文绘本馆';
-        Object.assign(titleText.style, {
-          fontSize: '24px', // 字体大小
-          fontWeight: 'bold', // 加粗
-          color: '#333333', // 颜色
-          margin: '0', // 清除默认边距
-          lineHeight: '1.2'
+        // 插入 Logo
+        if (logoToUse) {
+          const newLogo = logoToUse.cloneNode(true);
+          
+          // 确保 Logo 图片能正确加载
+          if (newLogo.tagName === 'IMG') {
+            // 获取完整的图片路径
+            let logoSrc = logoToUse.src || logoToUse.getAttribute('src') || logoToUse.getAttribute('data-src');
+            
+            // 如果是相对路径，转换为绝对路径
+            if (logoSrc && !logoSrc.startsWith('http') && !logoSrc.startsWith('data:')) {
+              if (logoSrc.startsWith('/')) {
+                logoSrc = window.location.origin + logoSrc;
+              } else {
+                logoSrc = window.location.origin + '/' + logoSrc;
+              }
+            }
+            
+            if (logoSrc) {
+              newLogo.src = logoSrc;
+              newLogo.setAttribute('src', logoSrc);
+              console.log(`📷 第 ${i + 1} 页 Logo src:`, logoSrc);
+            }
+            
+            // 清除可能干扰的事件处理
+            newLogo.onerror = null;
+            newLogo.onload = null;
+          }
+          
+          // 强制设置样式，确保 Logo 可见
+          // 使用 setProperty 设置 !important 样式
+          newLogo.style.setProperty('width', '50px', 'important');
+          newLogo.style.setProperty('height', 'auto', 'important');
+          newLogo.style.setProperty('display', 'block', 'important');
+          newLogo.style.setProperty('margin', '0', 'important');
+          newLogo.style.setProperty('visibility', 'visible', 'important');
+          newLogo.style.setProperty('opacity', '1', 'important');
+          newLogo.style.setProperty('position', 'relative', 'important');
+          newLogo.style.setProperty('z-index', '1000', 'important');
+          newLogo.style.setProperty('max-width', '50px', 'important');
+          newLogo.style.setProperty('object-fit', 'contain', 'important');
+          
+          // 额外使用 setAttribute 作为备用（某些情况下更可靠）
+          const styleString = 'width: 50px !important; height: auto !important; display: block !important; margin: 0 !important; visibility: visible !important; opacity: 1 !important; position: relative !important; z-index: 1000 !important; max-width: 50px !important; object-fit: contain !important;';
+          newLogo.setAttribute('style', styleString);
+          
+          leftPart.appendChild(newLogo);
+          logoInserted = true;
+          console.log(`✅ 第 ${i + 1} 页 Logo 插入成功`);
+        } else {
+          console.warn(`⚠️ 第 ${i + 1} 页无法找到 Logo，使用占位符`);
+          const placeholder = document.createElement('div');
+          placeholder.innerText = 'LOGO';
+          Object.assign(placeholder.style, {
+            width: '50px',
+            height: '50px',
+            backgroundColor: '#f0f0f0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '10px',
+            color: '#999'
+          });
+          leftPart.appendChild(placeholder);
+        }
+        
+        // 2. 馆名
+        const libName = document.createElement('h1');
+        libName.innerText = '饭米多蔻中英文绘本馆';
+        Object.assign(libName.style, {
+          fontSize: '18px',
+          fontWeight: 'bold',
+          color: '#333',
+          margin: '0',
+          lineHeight: '1.4'
         });
-        headerRow.appendChild(titleText);
+        leftPart.appendChild(libName);
         
-        // ==========================================
-        // 3. 🚀 插入页面
-        // ==========================================
-        clone.prepend(headerRow);
+        // --- [右侧] 报告名 + 日期 ---
+        const rightPart = document.createElement('div');
+        Object.assign(rightPart.style, {
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-end',
+          justifyContent: 'center'
+        });
         
-        // ==========================================
-        // 4. 📐 页面整体布局重置
-        // ==========================================
+        // 3. 报告名
+        const reportName = document.createElement('div');
+        reportName.innerText = '入学综合能力测评报告';
+        Object.assign(reportName.style, {
+          fontSize: '12px',
+          color: '#666',
+          marginBottom: '4px'
+        });
+        
+        // 4. 日期
+        const dateEl = Array.from(clone.querySelectorAll('*')).find(el => el.innerText && el.innerText.match(/\d{4}年\d{1,2}月\d{1,2}日/));
+        const dateText = dateEl ? dateEl.innerText : new Date().toLocaleDateString('zh-CN', {year: 'numeric', month: 'long', day: 'numeric'});
+        const dateDiv = document.createElement('div');
+        dateDiv.innerText = dateText;
+        Object.assign(dateDiv.style, {
+          fontSize: '12px',
+          color: '#999'
+        });
+        
+        rightPart.appendChild(reportName);
+        rightPart.appendChild(dateDiv);
+        
+        // --- 插入 ---
+        headerContainer.appendChild(leftPart);
+        headerContainer.appendChild(rightPart);
+        clone.prepend(headerContainer);
+        
+        // ============================================================
+        // 3. 📐 布局重置 (确保内容不顶头)
+        // ============================================================
         Object.assign(clone.style, {
           width: '100%',
           minHeight: '1125px',
           padding: '40px',
+          paddingTop: '40px', // 确保页眉有空间
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'flex-start',
-          backgroundColor: 'white',
+          backgroundColor: '#fff',
           boxSizing: 'border-box'
         });
         
@@ -524,11 +663,11 @@ const ReportPage = () => {
         
         // 3.2 🌟 核心修复：防止右侧切割！
         // 找到克隆体内所有可能撑破宽度的元素，强制它们缩放
-        // 但排除页眉中的 Logo（headerRow 中的图片）
+        // 但排除页眉中的 Logo（headerContainer 中的图片）
         const bigElements = clone.querySelectorAll('img, canvas, svg, .echarts-for-react'); 
         bigElements.forEach(el => {
-          // 如果元素在 headerRow 中，跳过处理（保持 Logo 原始大小）
-          if (headerRow && headerRow.contains(el)) {
+          // 如果元素在 headerContainer 中，跳过处理（保持 Logo 原始大小）
+          if (headerContainer && headerContainer.contains(el)) {
             return;
           }
           el.style.maxWidth = '100%'; // 强制缩进 800px 内

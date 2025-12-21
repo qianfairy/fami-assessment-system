@@ -565,6 +565,85 @@ const ReportPage = () => {
           footer.style.marginTop = 'auto';
         }
         
+        // ==========================================
+        // 🎯 雷达图完美居中修正（保守方案：只调整图表，不改变容器）
+        // ==========================================
+        // 1. 直接查找包含图表的容器（有边框的那个 div）
+        const chartEl = clone.querySelector('.recharts-wrapper') || 
+                       clone.querySelector('.recharts-surface') ||
+                       clone.querySelector('svg') || 
+                       clone.querySelector('canvas');
+        
+        if (chartEl) {
+          // 2. 向上查找有边框的容器（保持外边框不变）
+          let chartContainer = chartEl.parentElement;
+          while (chartContainer && chartContainer !== clone) {
+            const style = window.getComputedStyle(chartContainer);
+            // 查找有边框、阴影或圆角的容器
+            if (style.borderWidth !== '0px' || 
+                style.boxShadow !== 'none' || 
+                style.borderRadius !== '0px' ||
+                chartContainer.className.includes('border') ||
+                chartContainer.className.includes('rounded')) {
+              break;
+            }
+            chartContainer = chartContainer.parentElement;
+          }
+          
+          // 3. 如果找到容器，通过减少上下 padding 来缩小边框高度，实现居中
+          if (chartContainer && chartContainer !== clone) {
+            // 🌟 核心策略：减少容器的上下 padding，缩小边框的上下高度
+            const containerStyle = window.getComputedStyle(chartContainer);
+            const currentPaddingTop = parseFloat(containerStyle.paddingTop) || 16; // 默认 p-4 是 16px
+            const currentPaddingBottom = parseFloat(containerStyle.paddingBottom) || 16;
+            const currentPaddingLeft = containerStyle.paddingLeft;
+            const currentPaddingRight = containerStyle.paddingRight;
+            
+            // 减少上下 padding（从 16px 减少到 8px 或更小），保持左右 padding 不变
+            Object.assign(chartContainer.style, {
+              paddingTop: '8px',      // 减少上边距
+              paddingBottom: '8px',    // 减少下边距
+              paddingLeft: currentPaddingLeft,   // 保持左边距
+              paddingRight: currentPaddingRight, // 保持右边距
+              boxSizing: 'border-box'  // 确保 padding 包含在尺寸内
+            });
+            
+            // 4. 确保容器使用 flex 布局实现居中
+            const currentDisplay = containerStyle.display;
+            if (currentDisplay !== 'flex' && currentDisplay !== 'grid') {
+              chartContainer.style.display = 'flex';
+              chartContainer.style.justifyContent = 'center';
+              chartContainer.style.alignItems = 'center';
+            }
+            
+            // 5. 处理 ResponsiveContainer（Recharts 的响应式容器）
+            const responsiveContainer = chartContainer.querySelector('.recharts-responsive-container');
+            if (responsiveContainer) {
+              // 让图表填满容器（因为已经减少了 padding，图表会自动居中）
+              Object.assign(responsiveContainer.style, {
+                width: '100%',
+                height: '100%',
+                margin: '0',
+                display: 'block'
+              });
+            }
+            
+            // 6. 处理图表元素本身（.recharts-wrapper 或 svg）
+            const actualChart = chartContainer.querySelector('.recharts-wrapper') || 
+                               chartContainer.querySelector('.recharts-surface') ||
+                               chartContainer.querySelector('svg');
+            if (actualChart) {
+              // 确保图表元素填满 ResponsiveContainer
+              Object.assign(actualChart.style, {
+                width: '100%',
+                height: '100%',
+                margin: '0',
+                display: 'block'
+              });
+            }
+          }
+        }
+        
         // 3.2 🌟 核心修复：防止右侧切割！
         // 找到克隆体内所有可能撑破宽度的元素，强制它们缩放
         // 但排除页眉中的 Logo（headerContainer 中的图片）
